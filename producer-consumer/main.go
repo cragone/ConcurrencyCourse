@@ -82,8 +82,20 @@ func pizzeria(pizzaMaker *Producer) {
 
 	for {
 		currentPizza := makePizza(i)
-		//try to make a pizza
-		//decision
+		if currentPizza != nil {
+			i = currentPizza.pizzaNumber
+			select {
+			//we tried to make a pizza.(we sent something to the data channel.)
+			case pizzaMaker.data <- *currentPizza:
+
+			case quitChan := <-pizzaMaker.quit:
+
+				//close channels
+				close(pizzaMaker.data)
+				close(quitChan)
+				return
+			}
+		}
 	}
 }
 
@@ -105,6 +117,25 @@ func main() {
 	go pizzeria(pizzaJob)
 
 	//create and run the consumer
+
+	for i := range pizzaJob.data {
+		if i.pizzaNumber <= NumberOfPizzas {
+			if i.success {
+				color.Green(i.message)
+				color.Green("Order #%d is out for delivery", i.pizzaNumber)
+
+			} else {
+				color.Red(i.message)
+				color.Red("The customer is really mad!")
+			}
+		} else {
+			color.Cyan("Done making pizzas...")
+			err := pizzaJob.Close()
+			if err != nil {
+				color.Red("*** error closing channel", err)
+			}
+		}
+	}
 
 	//print out the ending message
 }
